@@ -15,7 +15,7 @@ $ ./canny garb34.pgm magnitude.pgm peaks.pgm [sigma==1]
 // part 2: output for garb34.pgm
 $ ./canny garb34.pgm magnitude.pgm peaks.pgm [sigma==1]
 // part 3: output for garb34.pgm 
-$ ./canny garb34.pgm magnitude.pgm peaks.pgm final_edges.pgm [sigma] [lo] [hi]
+$ ./canny garb34.pgm magnitude.pgm peaks.pgm final_edges.pgm [sigma==1] [lo==35.0] [hi==100.0]
 // part 4: output for garb34.pgm
 $ ./canny garb34.pgm magnitude.pgm peaks.pgm final_edges.pgm [sigma] [percent]
 
@@ -52,7 +52,8 @@ main(int argc, char **argv)
 {
         // initialize variables
         int     i,j,p,q,s,t,mr,centx,centy;
-        int     lo, hi;
+        //int     lo, hi;
+        double  lo, hi;
         double  x_maskval,y_maskval,x_sum,y_sum,sig,maxival,minmag,maxval;
         double  slope;
         //double sum,ZEROTOL;
@@ -73,9 +74,9 @@ main(int argc, char **argv)
         foobar = *argv;
         fo2=fopen(foobar,"wb");
 
-        // argc--; argv++;
-        // foobar = *argv;
-        // fo3=fopen(foobar,"wb");
+        argc--; argv++;
+        foobar = *argv;
+        fo3=fopen(foobar,"wb");
 
         argc--; argv++;
         foobar = *argv;
@@ -91,17 +92,19 @@ main(int argc, char **argv)
 	// foobar = *argv;
 	// //low_threshold = atof(foobar); // convert to float, linux/mac
         // lo = atoi(foobar); // convert to float, windows
+        lo = 35.0;
 
         // //  initialize high threshold by convert to float
         // argc--; argv++;
 	// foobar = *argv;
 	// //int hi = atof(foobar); // convert to float, linux/mac
         // hi = atoi(foobar); // convert to float, windows
+        hi = 100.0;
         
         // save .pgm header at top of file so image can be viewed in .pgm viewer
         fprintf(fo1, "P5\n256 256\n255\n");
         fprintf(fo2, "P5\n256 256\n255\n");
-        //fprintf(fo3, "P5\n256 256\n255\n");
+        fprintf(fo3, "P5\n256 256\n255\n");
 
         // // troubleshooting
         // printf("sigma: %f\n", sig);
@@ -300,5 +303,90 @@ main(int argc, char **argv)
         /* part 4 -- calculate hi/lo threshold values */
 
         /* part 3 -- find peaks above hi threshold or adjacent to hi threshold peaks */
+        // loop through rows
+        for(i=mr;i<256-mr;i++){
+
+                // loop through columns
+                for(j=mr;j<256-mr;j++){
+
+                        // check whether pixel is a peak
+                        if (edges[i][j] == 255) {
+                                // check whether this peak is > than HI threshold
+                                if (mag[i][j] > hi) {
+                                        // remove from temporary edges array ("off")
+                                        edges[i][j] = 0;
+                                        // pixel is "on" stored in final output array 
+                                        final[i][j] = 255;
+                                }
+                                // else if mag[ij] < lo threshold, ignore further consideration of this pixel
+                                else {
+                                        // set this pixel to "off" for both arrays
+                                        edges[i][j] = 0;
+                                        final[i][j] = 0;
+                                }
+                        }
+                }
+        }
+
+        // set finished flag to true (1) to check for peaks inbetween thresholds 
+        int moretodo = 1;
+
+        // check peaks with magnitudes between hi/lo thresholds
+        while (moretodo == 1) {
+                // turn moretodo flag off/false (0)
+                moretodo = 0;
+
+                // loop through rows
+                for(i=mr;i<256-mr;i++){
+
+                        // loop through columns
+                        for(j=mr;j<256-mr;j++){
+
+                                // check whether pixel is a peak
+                                if (edges[i][j] == 255) {
+
+                                        // loop through adjacent rows
+                                        for (p=-mr;p<=mr;p++)
+                                        //for (p=-1; p <= 1; p++)
+                                        {
+                                                // loop through adjacent columns
+                                                for (q=-mr;q<=mr;q++)
+                                                //for (q=-1; q <= 1; q++)
+                                                {
+                                                        // add x derivative/gradient to total
+                                                        //x_sum += pic[i+p][j+q] * x_mask[p+centy][q+centx];
+
+                                                        // check if this pixel is adjacent to a true peak (pixel which is above hi threshold)
+                                                        if (final[i+p][j+q] == 255) {
+                                                                // remove from temporary edges array ("off") to avoid checking again
+                                                                edges[i][j] = 0;
+                                                                // pixel is "on" and stored in final output array 
+                                                                final[i][j] = 255;
+
+                                                                // reset peak search, turn flag on to continue looping until all possible peaks/pixels have been declared
+                                                                moretodo = 1;
+                                                        }
+                                                }
+                                        }
+                                }
+
+                        }
+                }
+        }
+                
+        
+        // loop through final array rows to print output
+        for (i=0;i<256;i++)
+        //for (i=0;i<256-mr;i++)
+        {
+                // loop through final array cols
+                for (j=0;j<256;j++)
+                //for (j=0;j<256-mr;j++)
+                {
+                        // write pixel to final.pgm      
+                        fprintf(fo3,"%c",(char)((int)(final[i][j])));
+                }
+        }
 }
+
 
